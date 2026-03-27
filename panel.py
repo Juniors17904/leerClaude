@@ -50,25 +50,25 @@ class Panel:
         self.root.attributes("-topmost", True)
         self.root.attributes("-alpha", 0.95)
         self.root.overrideredirect(True)
-        self.root.configure(bg="#111827")
+        self.root.configure(bg="#000000")
 
         # Barra título / drag
-        barra = tk.Frame(self.root, bg="#1f2937", height=24, cursor="fleur")
+        barra = tk.Frame(self.root, bg="#111111", height=24, cursor="fleur")
         barra.pack(fill="x")
         barra.bind("<ButtonPress-1>", self._drag_start)
         barra.bind("<B1-Motion>",     self._drag_move)
 
-        tk.Label(barra, text="⬡ Voz Claude", bg="#1f2937", fg="#9ca3af",
+        tk.Label(barra, text="⬡ Voz Claude", bg="#111111", fg="#9ca3af",
                  font=("Consolas", 8)).pack(side="left", padx=8)
         tk.Button(barra, text="✕", command=self.root.destroy,
-                  bg="#1f2937", fg="#6b7280", font=("Consolas", 9),
+                  bg="#111111", fg="#6b7280", font=("Consolas", 9),
                   relief="flat", bd=0, cursor="hand2",
                   activebackground="#ef4444", activeforeground="white"
                   ).pack(side="right", padx=6)
 
         # Estado grande
         self.lbl_estado = tk.Label(
-            self.root, text="● LISTO", bg="#111827", fg="#10b981",
+            self.root, text="● LISTO", bg="#000000", fg="#10b981",
             font=("Consolas", 10, "bold"), anchor="w", padx=10
         )
         self.lbl_estado.pack(fill="x", pady=(6, 2))
@@ -76,7 +76,7 @@ class Panel:
         # Log de actividad
         self.log = scrolledtext.ScrolledText(
             self.root, height=9, wrap=tk.WORD,
-            bg="#0d1117", fg="#e5e7eb",
+            bg="#050505", fg="#e5e7eb",
             font=("Consolas", 8), borderwidth=0,
             padx=6, pady=4, state="disabled"
         )
@@ -88,7 +88,7 @@ class Panel:
         self.log.tag_config("claude",  foreground="#6ee7b7")
 
         # Botones
-        frame = tk.Frame(self.root, bg="#111827")
+        frame = tk.Frame(self.root, bg="#000000")
         frame.pack(fill="x", padx=6, pady=(0, 6))
 
         self.btn_mic = tk.Button(
