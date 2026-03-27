@@ -61,7 +61,7 @@ if __name__ == "__main__":
             texto = data.get("last_assistant_message", "").strip()
 
         if texto:
-            with open(COLA, "w", encoding="utf-8") as f:
-                f.write(texto)
+            with open(COLA, "a", encoding="utf-8") as f:
+                f.write(texto + "|||")
     except Exception as e:
         sys.stderr.write(f"Error leer.py: {e}\n")

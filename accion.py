@@ -27,8 +27,7 @@ if __name__ == "__main__":
         mensaje = MENSAJES.get(tool, "")
 
         if mensaje:
-            # Espera que el panel no esté reproduciendo antes de escribir
-            with open(COLA, "w", encoding="utf-8") as f:
-                f.write(mensaje)
+            with open(COLA, "a", encoding="utf-8") as f:
+                f.write(mensaje + "|||")
     except Exception as e:
         sys.stderr.write(f"Error accion.py: {e}\n")
