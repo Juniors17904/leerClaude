@@ -24,6 +24,7 @@ class Panel:
         self.hablando = False
         self.tts_activo = True
         self.escucha_auto = False
+        self.cancelar_mensaje = False
 
         pygame.mixer.init()
         self._build_ui()
@@ -131,13 +132,14 @@ class Panel:
     def _toggle_mic(self):
         if not self.mic_activo:
             self.mic_activo = True
-            self.btn_mic.config(text="⏹  Parar mic", bg="#b91c1c")
+            self.cancelar_mensaje = False
+            self.btn_mic.config(text="⏹  Cancelar", bg="#b91c1c")
             threading.Thread(target=self._ciclo_escucha, daemon=True).start()
         else:
-            self.mic_activo = False
-            self.btn_mic.config(text="🎙️  Hablar", bg="#1d4ed8")
-            self._set_estado("● LISTO", "#10b981")
-            self._log("Micrófono desactivado", "accion")
+            # Solo cancela el mensaje actual, no detiene el mic
+            self.cancelar_mensaje = True
+            self.escucha_auto = False
+            self._log("Cancelado — di 'activar comando'", "accion")
 
     # ── Toggle TTS ─────────────────────────────────────────────────────────────
     def _toggle_tts(self):
@@ -186,6 +188,15 @@ class Panel:
                     except (sr.UnknownValueError, Exception):
                         continue
 
+                    if "cancelar" in cmd:
+                        self.hablando = False
+                        self.escucha_auto = False
+                        self.cancelar_mensaje = True
+                        pygame.mixer.music.stop()
+                        self._log("⏹ Cancelado", "error")
+                        self._set_estado("👂  di 'activar comando'", "#4b5563")
+                        continue
+
                     if any(p in cmd for p in ["activar comando", "activar komando", "activar comand", "activar coman"]):
                         if self.hablando:
                             self.hablando = False
@@ -197,12 +208,18 @@ class Panel:
                     self._log("✓ Activado — habla ahora", "ok")
                     self._set_estado("🎙️  ESCUCHANDO...", "#f59e0b")
 
+                    self.cancelar_mensaje = False
                     rec.pause_threshold = 0.7
                     try:
                         audio2 = rec.listen(source, timeout=10, phrase_time_limit=30)
-                        threading.Thread(target=lambda: self._tono(600, 100), daemon=True).start()
+                        if self.cancelar_mensaje:
+                            continue
                         self._set_estado("⏳  PROCESANDO...", "#8b5cf6")
                         texto = rec.recognize_google(audio2, language="es-ES")
+                        if "cancelar" in texto.lower():
+                            self._log("⏹ Cancelado", "error")
+                            self._set_estado("👂  di 'activar comando'", "#4b5563")
+                            continue
                         self._log(f'🗣 Tú: "{texto}"', "voz")
                         self._set_estado("⌨️  ESCRIBIENDO...", "#6366f1")
                         self._escribir_en_vscode(texto)
@@ -329,27 +346,50 @@ class Panel:
             fragmentos.append(actual)
 
         try:
-            for frag in fragmentos:
+            archivos = [None] * len(fragmentos)
+
+            def pregenerar(i, frag):
+                try:
+                    tmp = tempfile.mktemp(suffix=".mp3")
+                    asyncio.run(self._gen_audio(frag, tmp))
+                    archivos[i] = tmp
+                except Exception:
+                    archivos[i] = ""
+
+            # Genera el primero ya
+            t = threading.Thread(target=pregenerar, args=(0, fragmentos[0]), daemon=True)
+            t.start()
+
+            for i, frag in enumerate(fragmentos):
                 if not self.hablando or not self.tts_activo:
                     break
-                tmp = tempfile.mktemp(suffix=".mp3")
-                asyncio.run(self._gen_audio(frag, tmp))
-                pygame.mixer.music.load(tmp)
+
+                # Espera que el audio actual esté listo
+                while archivos[i] is None:
+                    time.sleep(0.05)
+
+                # Pregenerá el siguiente mientras reproduce este
+                if i + 1 < len(fragmentos):
+                    threading.Thread(target=pregenerar, args=(i + 1, fragmentos[i + 1]), daemon=True).start()
+
+                if not archivos[i]:
+                    continue
+
+                pygame.mixer.music.load(archivos[i])
                 pygame.mixer.music.play()
                 while pygame.mixer.music.get_busy() and self.hablando and self.tts_activo:
-                    time.sleep(0.1)
+                    time.sleep(0.05)
                 pygame.mixer.music.stop()
                 pygame.mixer.music.unload()
                 try:
-                    os.remove(tmp)
+                    os.remove(archivos[i])
                 except Exception:
                     pass
+
         except Exception as ex:
             self._log(f"Error TTS: {ex}", "error")
 
         self.hablando = False
-        if self.mic_activo:
-            self.escucha_auto = True
         self._set_estado("🎙️  ESCUCHANDO..." if self.mic_activo else "● LISTO",
                          "#f59e0b" if self.mic_activo else "#10b981")
 
